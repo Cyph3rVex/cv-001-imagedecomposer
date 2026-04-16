@@ -5,7 +5,7 @@ import pytesseract
 
 def process_image(image_bytes: bytes, roi: dict = None) -> dict:
     """
-    Núcleo del procesador: Segmenta la imagen, extrae texto y regenera el fondo.
+    Núcleo del procesador (Visión por Computadora): Segmenta la imagen, extrae texto y regenera el fondo.
     Soporta ROI (Region of Interest) para descomposición parcial.
     """
     nparr = np.frombuffer(image_bytes, np.uint8)
@@ -14,7 +14,6 @@ def process_image(image_bytes: bytes, roi: dict = None) -> dict:
     if img is None:
         raise ValueError("Invalid image file.")
 
-    # Si hay ROI, recortamos la imagen antes de procesar
     if roi:
         x, y, w, h = int(roi['x']), int(roi['y']), int(roi['w']), int(roi['h'])
         img = img[y:y+h, x:x+w]
@@ -40,7 +39,7 @@ def process_image(image_bytes: bytes, roi: dict = None) -> dict:
             })
             cv2.drawContours(mask, [c], -1, 255, -1)
 
-    # 2. Extracción de Texto (OCR + Color Detection)
+    # 2. Extracción de Texto (OCR + Detección de Color)
     texts = []
     try:
         d = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
@@ -48,7 +47,7 @@ def process_image(image_bytes: bytes, roi: dict = None) -> dict:
             if int(d['conf'][i]) > 60 and d['text'][i].strip():
                 x, y, w, h = d['left'][i], d['top'][i], d['width'][i], d['height'][i]
                 
-                # Muestrear el color central del texto
+                # Muestreo central
                 sample_y, sample_x = y + h//2, x + w//2
                 if 0 <= sample_y < img.shape[0] and 0 <= sample_x < img.shape[1]:
                     b, g, r = img[sample_y, sample_x]
@@ -67,7 +66,7 @@ def process_image(image_bytes: bytes, roi: dict = None) -> dict:
     except Exception:
         pass
 
-    # 3. Inpainting
+    # 3. Reconstrucción de fondo (Inpainting Telea)
     inpainted = cv2.inpaint(img, mask, 3, cv2.INPAINT_TELEA)
     _, bg_buffer = cv2.imencode('.png', inpainted)
     base_bg = base64.b64encode(bg_buffer).decode('utf-8')

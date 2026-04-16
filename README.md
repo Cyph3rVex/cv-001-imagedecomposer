@@ -1,43 +1,51 @@
-# CV-001: Image Decomposer & Professional Layer Editor
+# 👁️ ImageDecomposer: The Surgeon (CV-002)
 
-Herramienta de élite impulsada por IA para segmentar, extraer y editar componentes de una imagen (texto, logotipos, objetos) de manera automatizada. Utiliza técnicas avanzadas de inpainting para reconstruir el fondo dinámicamente y un motor de renderizado web para una edición no destructiva.
+[![Security: Verified by Vex](https://img.shields.io/badge/Security-Verified%20by%20Vex-red.svg)](https://github.com/Cyph3rVex/cv-001-imagedecomposer)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python: 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 
-## Alcance
-Extrae y convierte imágenes planas en lienzos interactivos con capas jerárquicas (1 a N).
+**ImageDecomposer** es una suite avanzada de Visión por Computadora diseñada por **Cypher Vex**. Analiza imágenes en bruto, extrae sus componentes (logotipos, patrones, tipografías) y convierte el resultado en un lienzo dinámico en capas, reconstruyendo el fondo dañado mediante redes de **Inpainting**.
 
-## Requisitos Previos
-- Python 3.10+
-- Tesseract-OCR (Instalado a nivel de sistema operativo para soporte de texto)
-- Dependencias listadas en `requirements.txt`
+## 🚀 Características Principales
 
-## Instalación
+*   **Inpainting Autónomo (Telea):** Regeneración matemática de los huecos dejados en el lienzo tras la extracción.
+*   **Extracción Textual Precisa:** OCR con detección de Bounding Boxes y clonación de color dinámico.
+*   **Selección Quirúrgica (ROI):** Define coordenadas de recorte elástico para enfocar la segmentación.
+*   **Z-Index Hierarchy Layering:** Motor de renderizado web de grado profesional.
 
-1. **Clonar repositorio**
-   ```bash
-   git clone https://github.com/cyph3rv3x/cv-001-imagedecomposer.git
-   cd cv-001-imagedecomposer
-   ```
-2. **Entorno Virtual**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate
-   ```
-3. **Instalar Dependencias**
-   ```bash
-   pip install -r requirements.txt
-   ```
+## 🛠️ Instalación
 
-## Uso
+El sistema requiere dependencias criptográficas y de visión avanzadas. Usa el entorno virtual para mantener la higiene de tu terminal.
 
-1. Iniciar el servidor backend:
-   ```bash
-   uvicorn backend.main:app --host 0.0.0.0 --port 8000
-   ```
-2. Abre tu navegador en `http://localhost:8000`.
-3. Sube una imagen. La IA extraerá los objetos y textos, y generará un fondo limpio.
+### En PC o Servidor
+```bash
+git clone https://github.com/Cyph3rVex/cv-001-imagedecomposer.git
+cd cv-001-imagedecomposer
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
 
-## Contribución
-Consulta `CONTRIBUTING.md`. Reporta issues detallados. No se aceptan PRs sin pruebas unitarias.
+*(Se requiere tesseract-ocr instalado a nivel de SO para extracción de texto).*
 
-## Licencia
-MIT License. Ver `LICENSE`.
+## 🔑 Configuración
+
+Si utilizas redes restringidas, el sistema está preparado. Inicializa el servidor central.
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+Abre tu navegador apuntando a `http://localhost:8000`.
+
+## 🔍 Estructura del Core (Clean Architecture)
+
+El código ha sido reescrito bajo estándares de élite:
+*   `api/` - Enrutadores RESTful y validación de esquemas (Pydantic).
+*   `core/` - Motor de Inpainting y Segmentación (Visión Artificial).
+*   `models/` - Estructuras de datos para objetos y capas.
+*   `static/` - Interfaz balística reactiva (Fabric.js + Tailwind).
+
+---
+
+*“No cometo errores. Los elimino.”* — **Cypher Vex**
