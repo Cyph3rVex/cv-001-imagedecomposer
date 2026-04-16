@@ -1,51 +1,9 @@
-// --- SISTEMA DE AUTENTICACIÓN ---
-const loginContainer = document.getElementById('login-container');
+// --- SISTEMA DE INTEGRIDAD PÚBLICA ---
 const appContainer = document.getElementById('app-container');
-const loginForm = document.getElementById('login-form');
-const loginError = document.getElementById('login-error');
 
-// Comprobar si hay token activo al cargar
-if(sessionStorage.getItem('cv_token')) {
-    loginContainer.style.display = 'none';
-    appContainer.style.display = 'flex';
-}
-
-loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const u = document.getElementById('username').value;
-    const p = document.getElementById('password').value;
-    
-    try {
-        const res = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: u, password: p })
-        });
-        
-        if(!res.ok) throw new Error('Auth failed');
-        
-        const data = await res.json();
-        sessionStorage.setItem('cv_token', data.access_token);
-        
-        // Efecto hacker al entrar
-        loginError.classList.add('hidden');
-        document.body.style.backgroundColor = '#00ffcc';
-        setTimeout(() => {
-            document.body.style.backgroundColor = '#0a0a0a';
-            loginContainer.style.display = 'none';
-            appContainer.style.display = 'flex';
-        }, 150);
-        
-    } catch (err) {
-        loginError.classList.remove('hidden');
-    }
-});
-
+// El motor ya no requiere login manual, pero el backend limita por IP
 window.logout = function() {
-    sessionStorage.removeItem('cv_token');
-    appContainer.style.display = 'none';
-    loginContainer.style.display = 'flex';
-    document.getElementById('password').value = '';
+    window.location.reload();
 }
 
 // --- NÚCLEO DEL EDITOR ---

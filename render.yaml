@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: cv-surgeon-vault
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port 8000
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.5
+      - key: JWT_SECRET
+        generateValue: true

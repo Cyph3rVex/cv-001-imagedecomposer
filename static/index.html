@@ -14,27 +14,23 @@
         .cyber-btn { background: rgba(0, 255, 204, 0.1); border: 1px solid #00ffcc; color: #00ffcc; text-transform: uppercase; letter-spacing: 2px; transition: all 0.2s;}
         .cyber-btn:hover { background: #00ffcc; color: #000; box-shadow: 0 0 10px #00ffcc; }
         
-        /* Ocultar app principal inicialmente */
-        #app-container { display: none; }
+        #app-container { display: flex; }
+        #login-container { display: none; }
     </style>
 </head>
 <body class="h-screen flex flex-col">
     
-    <!-- LOGIN GATEKEEPER -->
-    <div id="login-container" class="flex-1 flex justify-center items-center bg-black relative">
-        <div class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(#00ffcc 1px, transparent 1px); background-size: 20px 20px;"></div>
-        <div class="border border-[#00ffcc] bg-black p-8 shadow-[0_0_20px_rgba(0,255,204,0.3)] z-10 w-96 max-w-full">
-            <h1 class="text-2xl font-bold mb-2 text-center">CYPHER VEX // VAULT</h1>
-            <p class="text-xs text-center mb-6 text-gray-500 uppercase tracking-widest">Acceso Restringido Nivel 5</p>
-            
-            <form id="login-form" class="flex flex-col gap-4">
-                <input type="text" id="username" placeholder="Identidad" class="cyber-input w-full p-2 text-sm" required autocomplete="off"/>
-                <input type="password" id="password" placeholder="Código de Acceso" class="cyber-input w-full p-2 text-sm" required />
-                <p id="login-error" class="text-red-500 text-xs hidden">Acceso denegado.</p>
-                <button type="submit" class="cyber-btn w-full py-2 mt-4 text-sm font-bold">Autenticar</button>
-            </form>
-        </div>
-    </div>
+    <!-- PROTECCIÓN DE INTEGRIDAD -->
+    <script>
+        (function(){
+            // Evitar que nos roben el código y lo usen en otro dominio
+            const authorized = ["localhost", "127.0.0.1", "cyphervex.com"]; // Añadir dominio real aquí
+            if (!authorized.some(domain => window.location.hostname.includes(domain))) {
+                document.body.innerHTML = "<h1 style='color:red; text-align:center; margin-top:20%;'>LICENCIA NO VÁLIDA. ACCESO DENEGADO.</h1>";
+                throw new Error("Violación de integridad detectada.");
+            }
+        })();
+    </script>
 
     <!-- MAIN APP -->
     <div id="app-container" class="h-screen flex flex-col">
