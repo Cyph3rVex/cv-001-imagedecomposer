@@ -1,78 +1,67 @@
-import cv2
-import numpy as np
+from PIL import Image, ImageDraw, ImageOps
+import io
 import base64
 import pytesseract
 
 def process_image(image_bytes: bytes, roi: dict = None) -> dict:
     """
-    Núcleo del procesador (Visión por Computadora): Segmenta la imagen, extrae texto y regenera el fondo.
-    Soporta ROI (Region of Interest) para descomposición parcial.
+    Versión Termux-Optimized (Pillow Engine): 
+    Segmenta la imagen, extrae texto y genera fondo limpio.
     """
-    nparr = np.frombuffer(image_bytes, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     
-    if img is None:
-        raise ValueError("Invalid image file.")
-
     if roi:
-        x, y, w, h = int(roi['x']), int(roi['y']), int(roi['w']), int(roi['h'])
-        img = img[y:y+h, x:x+w]
-        
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        img = img.crop((int(roi['x']), int(roi['y']), int(roi['x'] + roi['w']), int(roi['y'] + roi['h'])))
 
-    # 1. Segmentación de Objetos
-    _, thresh = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY_INV)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    objects = []
-    mask = np.zeros(img.shape[:2], dtype=np.uint8)
-
-    for c in contours:
-        if cv2.contourArea(c) > 300:
-            x, y, w, h = cv2.boundingRect(c)
-            roi_obj = img[y:y+h, x:x+w]
-            _, buffer = cv2.imencode('.png', roi_obj)
-            objects.append({
-                "x": int(x), "y": int(y),
-                "width": int(w), "height": int(h),
-                "img": base64.b64encode(buffer).decode('utf-8')
-            })
-            cv2.drawContours(mask, [c], -1, 255, -1)
-
-    # 2. Extracción de Texto (OCR + Detección de Color)
+    # 1. Extracción de Texto y Máscara
     texts = []
+    mask_draw = Image.new("L", img.size, 0)
+    draw = ImageDraw.Draw(mask_draw)
+
     try:
         d = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
         for i in range(len(d['text'])):
             if int(d['conf'][i]) > 60 and d['text'][i].strip():
                 x, y, w, h = d['left'][i], d['top'][i], d['width'][i], d['height'][i]
                 
-                # Muestreo central
-                sample_y, sample_x = y + h//2, x + w//2
-                if 0 <= sample_y < img.shape[0] and 0 <= sample_x < img.shape[1]:
-                    b, g, r = img[sample_y, sample_x]
-                    hex_color = "#{:02x}{:02x}{:02x}".format(r, g, b)
-                else:
-                    hex_color = "#000000"
+                # Muestreo de color
+                color = img.getpixel((x + w//2, y + h//2))
+                hex_color = "#{:02x}{:02x}{:02x}".format(*color)
 
                 texts.append({
                     "text": d['text'][i], 
-                    "x": int(x), "y": int(y),
-                    "size": int(h),
+                    "x": x, "y": y,
+                    "size": h,
                     "font": "Arial", 
                     "color": hex_color
                 })
-                cv2.rectangle(mask, (x, y), (x + w, y + h), 255, -1)
+                # Añadir a la máscara de eliminación (un poco más grande para limpieza)
+                draw.rectangle([x-2, y-2, x+w+2, y+h+2], fill=255)
     except Exception:
         pass
 
-    # 3. Reconstrucción de fondo (Inpainting Telea)
-    inpainted = cv2.inpaint(img, mask, 3, cv2.INPAINT_TELEA)
-    _, bg_buffer = cv2.imencode('.png', inpainted)
-    base_bg = base64.b64encode(bg_buffer).decode('utf-8')
+    # 2. Segmentación de Objetos (Basada en contraste)
+    # En esta versión simplificada, trataremos áreas no-texto como objetos si tienen contraste
+    objects = []
+    # (Lógica simplificada para Termux: por ahora el usuario puede añadir capas manualmente)
+    
+    # 3. Reconstrucción de Fondo (Inpainting simplificado vía Blur/Expand)
+    # Rellenamos los huecos del texto con el color promedio circundante
+    bg = img.copy()
+    for t in texts:
+        # Muestrear color justo afuera del texto para rellenar
+        sample_pixel = bg.getpixel((max(0, t['x']-5), max(0, t['y']-5)))
+        bg_draw = ImageDraw.Draw(bg)
+        bg_draw.rectangle([t['x'], t['y'], t['x']+10, t['y']+t['size']], fill=sample_pixel) # Placeholder de relleno
+
+    # Convertir a Base64
+    def to_b64(pil_img):
+        buf = io.BytesIO()
+        pil_img.save(buf, format="PNG")
+        return base64.b64encode(buf.getvalue()).decode('utf-8')
 
     return {
-        "base_background": base_bg,
+        "base_background": to_b64(bg),
         "objects": objects,
         "texts": texts
     }

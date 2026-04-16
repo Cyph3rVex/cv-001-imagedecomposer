@@ -195,40 +195,61 @@ document.getElementById('addLayerImage').addEventListener('change', function(e) 
     reader.readAsDataURL(file);
 });
 
-// Gestor de Renderizado de Capas en Panel Lateral
+// Función de Descarga de Imagen Final
+window.downloadPNG = function() {
+    const dataURL = canvas.toDataURL({
+        format: 'png',
+        quality: 1
+    });
+    const link = document.createElement('a');
+    link.download = 'cv-surgeon-export.png';
+    link.href = dataURL;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
+// Mejorar la interacción de capas
 function renderLayers() {
     layersList.innerHTML = '';
     const objects = canvas.getObjects();
-    // Invertir para que el superior se vea arriba en la lista
-    for (let i = objects.length - 1; i >= 0; i--) {
-        const obj = objects[i];
+    
+    objects.forEach((obj, i) => {
         const li = document.createElement('li');
-        li.className = 'layer-item bg-gray-900 border border-gray-700 rounded p-2 text-sm flex justify-between items-center';
+        li.className = `layer-item border border-gray-700 rounded p-2 text-xs flex justify-between items-center ${canvas.getActiveObject() === obj ? 'bg-red-900/30 border-red-500' : 'bg-gray-900'}`;
+        
         li.innerHTML = `
-            <span class="truncate w-3/4">${obj.name || obj.type} (Capa ${i + 1})</span>
-            <div class="flex gap-2">
-                <button title="Traer al frente" class="text-gray-400 hover:text-white" onclick="bringForward(${i})">↑</button>
-                <button title="Enviar atrás" class="text-gray-400 hover:text-white" onclick="sendBackward(${i})">↓</button>
-                <button title="Eliminar" class="text-red-500 hover:text-red-400 font-bold" onclick="removeLayer(${i})">X</button>
+            <div class="flex flex-col">
+                <span class="font-bold">#${i + 1} ${obj.name || obj.type}</span>
+                <span class="text-[10px] text-gray-500">Z-Index: ${i}</span>
+            </div>
+            <div class="flex gap-1">
+                <button title="Subir" class="bg-gray-800 p-1 rounded hover:bg-gray-700" onclick="changeZ(${i}, 1)">↑</button>
+                <button title="Bajar" class="bg-gray-800 p-1 rounded hover:bg-gray-700" onclick="changeZ(${i}, -1)">↓</button>
+                <button title="Eliminar" class="bg-red-900/50 p-1 rounded hover:bg-red-600" onclick="removeLayer(${i})">✕</button>
             </div>
         `;
-        // Seleccionar en el lienzo al clickear la capa
         li.onclick = (e) => {
-            if(e.target.tagName !== 'BUTTON') canvas.setActiveObject(obj);
+            if(e.target.tagName !== 'BUTTON') {
+                canvas.setActiveObject(obj);
+                canvas.renderAll();
+            }
         };
-        layersList.appendChild(li);
-    }
+        layersList.prepend(li); // Lo más arriba en la lista es lo más arriba en el canvas
+    });
 }
 
-// Funciones de control de Z-Index
-window.bringForward = function(index) {
+window.changeZ = function(index, delta) {
     const obj = canvas.item(index);
-    if(obj) { canvas.bringForward(obj); canvas.renderAll(); renderLayers(); }
-};
-window.sendBackward = function(index) {
-    const obj = canvas.item(index);
-    // Evitar que envíen detrás de la capa base inpaint
-    if(obj && index > 1) { canvas.sendBackwards(obj); canvas.renderAll(); renderLayers(); }
+    if(!obj) return;
+    
+    if(delta > 0) {
+        canvas.bringForward(obj);
+    } else {
+        if(index > 0) canvas.sendBackwards(obj);
+    }
+    canvas.renderAll();
+    renderLayers();
 };
 window.removeLayer = function(index) {
     const obj = canvas.item(index);
