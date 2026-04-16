@@ -17,16 +17,25 @@
 
 El sistema requiere dependencias criptográficas y de visión avanzadas. Usa el entorno virtual para mantener la higiene de tu terminal.
 
-### En PC o Servidor
+### En Termux / Android (Modo Supervivencia)
+Debido a las estrictas restricciones de compilación de C++ en ARM64, el código ha sido optimizado para evitar la compilación desde cero. Ejecuta este arsenal nativo:
+
 ```bash
+# 1. Instalar dependencias binarias del sistema Termux
+pkg update -y
+pkg install -y x11-repo science-repo python-pillow tesseract
+
+# 2. Clonar y aislar el entorno
 git clone https://github.com/Cyph3rVex/cv-001-imagedecomposer.git
 cd cv-001-imagedecomposer
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
 
-*(Se requiere tesseract-ocr instalado a nivel de SO para extracción de texto).*
+# 3. Crear entorno virtual heredando los paquetes del sistema (Crucial para Pillow)
+python -m venv --system-site-packages venv
+source venv/bin/activate
+
+# 4. Instalar dependencias ligeras
+pip install fastapi uvicorn python-multipart pytesseract requests
+```
 
 ## 🔑 Configuración
 
