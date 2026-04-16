@@ -3,66 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CV-001 | Professional Image Editor</title>
-    <!-- Tailwind CSS for styling -->
+    <title>Enterprise Surgeon | CV-003</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Fabric.js for HTML5 Canvas manipulation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
-        body { background-color: #121212; color: #ffffff; }
-        .canvas-container { margin: 0 auto; border: 1px solid #333; background: #1a1a1a; }
-        .layer-item { cursor: grab; transition: background 0.2s; }
-        .layer-item:hover { background-color: #2a2a2a; }
+        body { background-color: #0a0a0a; color: #00ffcc; font-family: 'Courier New', Courier, monospace; }
+        .canvas-container { margin: 0 auto; border: 1px solid #1f2937; background: #111; box-shadow: 0 0 15px rgba(0, 255, 204, 0.1); }
+        .layer-item { cursor: grab; transition: all 0.2s; }
+        .cyber-input { background: #000; border: 1px solid #00ffcc; color: #00ffcc; outline: none; }
+        .cyber-btn { background: rgba(0, 255, 204, 0.1); border: 1px solid #00ffcc; color: #00ffcc; text-transform: uppercase; letter-spacing: 2px; transition: all 0.2s;}
+        .cyber-btn:hover { background: #00ffcc; color: #000; box-shadow: 0 0 10px #00ffcc; }
+        
+        /* Ocultar app principal inicialmente */
+        #app-container { display: none; }
     </style>
 </head>
-<body class="h-screen flex flex-col font-sans">
+<body class="h-screen flex flex-col">
     
-    <header class="bg-black p-4 border-b border-gray-800 flex justify-between items-center">
-        <div>
-            <h1 class="text-xl font-bold text-red-500">CV-001 // Image Decomposer</h1>
-            <p class="text-xs text-gray-400">By Cypher Vex</p>
+    <!-- LOGIN GATEKEEPER -->
+    <div id="login-container" class="flex-1 flex justify-center items-center bg-black relative">
+        <div class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(#00ffcc 1px, transparent 1px); background-size: 20px 20px;"></div>
+        <div class="border border-[#00ffcc] bg-black p-8 shadow-[0_0_20px_rgba(0,255,204,0.3)] z-10 w-96 max-w-full">
+            <h1 class="text-2xl font-bold mb-2 text-center">CYPHER VEX // VAULT</h1>
+            <p class="text-xs text-center mb-6 text-gray-500 uppercase tracking-widest">Acceso Restringido Nivel 5</p>
+            
+            <form id="login-form" class="flex flex-col gap-4">
+                <input type="text" id="username" placeholder="Identidad" class="cyber-input w-full p-2 text-sm" required autocomplete="off"/>
+                <input type="password" id="password" placeholder="Código de Acceso" class="cyber-input w-full p-2 text-sm" required />
+                <p id="login-error" class="text-red-500 text-xs hidden">Acceso denegado.</p>
+                <button type="submit" class="cyber-btn w-full py-2 mt-4 text-sm font-bold">Autenticar</button>
+            </form>
         </div>
-        <div class="flex gap-4">
-            <button id="btn-select-area" class="bg-orange-800 hover:bg-orange-700 px-4 py-2 rounded text-sm transition">Seleccionar Área</button>
-            <input type="file" id="uploadImage" class="hidden" accept="image/*" />
-            <button onclick="document.getElementById('uploadImage').click()" class="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded text-sm transition">Toda la Foto</button>
-            <input type="file" id="addLayerImage" class="hidden" accept="image/*" />
-            <button onclick="document.getElementById('addLayerImage').click()" class="bg-blue-800 hover:bg-blue-700 px-4 py-2 rounded text-sm transition">Añadir Imagen</button>
-            <button onclick="downloadPNG()" class="bg-green-700 hover:bg-green-600 px-4 py-2 rounded text-sm transition font-bold">Descargar PNG</button>
-        </div>
-    </header>
+    </div>
 
-    <main class="flex-1 flex overflow-hidden">
-        <!-- Canvas Area -->
-        <div class="flex-1 p-6 flex justify-center items-center bg-zinc-900 overflow-auto relative">
-            <div id="loader" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black bg-opacity-80 p-6 rounded-lg shadow-lg z-50">
-                <p class="text-red-500 font-mono tracking-widest animate-pulse">PROCESANDO RED NEURONAL...</p>
+    <!-- MAIN APP -->
+    <div id="app-container" class="h-screen flex flex-col">
+        <header class="bg-black p-4 border-b border-[#00ffcc] flex justify-between items-center shadow-[0_2px_10px_rgba(0,255,204,0.1)]">
+            <div>
+                <h1 class="text-xl font-bold tracking-widest">SURGEON <span class="text-xs text-white">v3.0.0</span></h1>
             </div>
-            <canvas id="editor-canvas"></canvas>
-        </div>
+            <div class="flex gap-4 items-center">
+                <button id="btn-select-area" class="cyber-btn px-4 py-1 text-xs">Seleccionar Área</button>
+                <input type="file" id="uploadImage" class="hidden" accept="image/*" />
+                <button onclick="document.getElementById('uploadImage').click()" class="cyber-btn px-4 py-1 text-xs">Toda la Foto</button>
+                <input type="file" id="addLayerImage" class="hidden" accept="image/*" />
+                <button onclick="document.getElementById('addLayerImage').click()" class="cyber-btn px-4 py-1 text-xs">Añadir Imagen</button>
+                <button onclick="downloadPNG()" class="cyber-btn bg-[#00ffcc] text-black hover:bg-white hover:text-black hover:shadow-none px-4 py-1 text-xs font-bold">Exportar PNG</button>
+                <button onclick="logout()" class="text-red-500 hover:text-red-400 text-xs ml-4 border border-red-500 px-2 py-1">CERRAR SESIÓN</button>
+            </div>
+        </header>
 
-        <!-- Right Panel: Toolbar & Layers -->
-        <aside class="w-80 bg-black border-l border-gray-800 flex flex-col">
-            <div class="p-4 border-b border-gray-800">
-                <h2 class="text-sm font-semibold uppercase text-gray-500 mb-4">Herramientas de Edición</h2>
-                <div id="text-tools" class="hidden flex flex-col gap-2">
-                    <input type="text" id="text-input" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm focus:border-red-500 outline-none" placeholder="Texto..." />
-                    <div class="flex gap-2">
-                        <input type="color" id="text-color" class="w-10 h-8 rounded border-none cursor-pointer" />
-                        <input type="number" id="text-size" class="w-full bg-gray-900 border border-gray-700 rounded p-1 text-sm focus:border-red-500 outline-none" placeholder="Tamaño" />
-                    </div>
+        <main class="flex-1 flex overflow-hidden">
+            <div class="flex-1 p-6 flex justify-center items-center bg-[#050505] overflow-auto relative">
+                <div id="loader" class="hidden absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black border border-[#00ffcc] p-6 shadow-[0_0_15px_rgba(0,255,204,0.5)] z-50">
+                    <p class="font-mono tracking-widest animate-pulse">ANALIZANDO FIRMA VISUAL...</p>
                 </div>
-                <p id="no-selection" class="text-xs text-gray-500 italic">Selecciona un elemento en el lienzo.</p>
+                <canvas id="editor-canvas"></canvas>
             </div>
 
-            <div class="flex-1 overflow-y-auto p-4 flex flex-col">
-                <h2 class="text-sm font-semibold uppercase text-gray-500 mb-4">Gestor de Capas</h2>
-                <ul id="layers-list" class="flex flex-col gap-2">
-                    <!-- Las capas se inyectarán aquí -->
-                </ul>
-            </div>
-        </aside>
-    </main>
+            <aside class="w-80 bg-black border-l border-[#00ffcc] flex flex-col shadow-[-2px_0_10px_rgba(0,255,204,0.05)]">
+                <div class="p-4 border-b border-gray-800">
+                    <h2 class="text-xs font-semibold uppercase text-gray-400 mb-4 tracking-widest">Telemetría de Objeto</h2>
+                    <div id="text-tools" class="hidden flex flex-col gap-3">
+                        <input type="text" id="text-input" class="cyber-input w-full p-2 text-xs" placeholder="Payload..." />
+                        <div class="flex gap-2">
+                            <input type="color" id="text-color" class="w-10 h-8 bg-black border border-[#00ffcc] cursor-pointer" />
+                            <input type="number" id="text-size" class="cyber-input w-full p-1 text-xs" placeholder="Size" />
+                        </div>
+                    </div>
+                    <p id="no-selection" class="text-xs text-gray-600 italic">Target no adquirido.</p>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-4 flex flex-col">
+                    <h2 class="text-xs font-semibold uppercase text-gray-400 mb-4 tracking-widest">Jerarquía de Capas</h2>
+                    <ul id="layers-list" class="flex flex-col gap-2"></ul>
+                </div>
+            </aside>
+        </main>
+    </div>
 
     <script src="app.js"></script>
 </body>

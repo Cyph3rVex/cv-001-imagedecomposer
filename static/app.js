@@ -1,29 +1,74 @@
-// Inicializar Lienzo
+// --- SISTEMA DE AUTENTICACIÓN ---
+const loginContainer = document.getElementById('login-container');
+const appContainer = document.getElementById('app-container');
+const loginForm = document.getElementById('login-form');
+const loginError = document.getElementById('login-error');
+
+// Comprobar si hay token activo al cargar
+if(sessionStorage.getItem('cv_token')) {
+    loginContainer.style.display = 'none';
+    appContainer.style.display = 'flex';
+}
+
+loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const u = document.getElementById('username').value;
+    const p = document.getElementById('password').value;
+    
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: u, password: p })
+        });
+        
+        if(!res.ok) throw new Error('Auth failed');
+        
+        const data = await res.json();
+        sessionStorage.setItem('cv_token', data.access_token);
+        
+        // Efecto hacker al entrar
+        loginError.classList.add('hidden');
+        document.body.style.backgroundColor = '#00ffcc';
+        setTimeout(() => {
+            document.body.style.backgroundColor = '#0a0a0a';
+            loginContainer.style.display = 'none';
+            appContainer.style.display = 'flex';
+        }, 150);
+        
+    } catch (err) {
+        loginError.classList.remove('hidden');
+    }
+});
+
+window.logout = function() {
+    sessionStorage.removeItem('cv_token');
+    appContainer.style.display = 'none';
+    loginContainer.style.display = 'flex';
+    document.getElementById('password').value = '';
+}
+
+// --- NÚCLEO DEL EDITOR ---
 const canvas = new fabric.Canvas('editor-canvas', {
     width: 800,
     height: 600,
-    preserveObjectStacking: true // Mantiene el Z-Index estricto
+    preserveObjectStacking: true
 });
 
 const loader = document.getElementById('loader');
 const layersList = document.getElementById('layers-list');
-
-// Escuchadores de herramientas de texto
 const textTools = document.getElementById('text-tools');
 const noSelection = document.getElementById('no-selection');
 const textInput = document.getElementById('text-input');
 const textColor = document.getElementById('text-color');
 const textSize = document.getElementById('text-size');
 
-// Actualizar panel al seleccionar objetos
 canvas.on('selection:created', handleSelection);
 canvas.on('selection:updated', handleSelection);
 canvas.on('selection:cleared', () => {
     textTools.classList.add('hidden');
     noSelection.classList.remove('hidden');
 });
-
-// Actualizar lista de capas cuando cambian los objetos
 canvas.on('object:added', renderLayers);
 canvas.on('object:removed', renderLayers);
 canvas.on('object:modified', renderLayers);
@@ -42,7 +87,6 @@ function handleSelection(e) {
     }
 }
 
-// Vinculación bidireccional UI -> Canvas
 textInput.addEventListener('input', (e) => {
     const obj = canvas.getActiveObject();
     if (obj && obj.type === 'i-text') { obj.set('text', e.target.value); canvas.renderAll(); }
@@ -63,16 +107,13 @@ document.getElementById('btn-select-area').onclick = () => {
     isSelecting = !isSelecting;
     const btn = document.getElementById('btn-select-area');
     if (isSelecting) {
-        btn.innerText = "Dibujando... (Click para procesar)";
-        btn.classList.add('bg-red-600');
+        btn.innerText = "[ DIBUJANDO ROI ]";
+        btn.classList.add('bg-[#00ffcc]', 'text-black');
         canvas.defaultCursor = 'crosshair';
         
         selectionRect = new fabric.Rect({
-            fill: 'rgba(255,0,0,0.3)',
-            stroke: 'red',
-            strokeWidth: 2,
-            selectable: false,
-            left: 0, top: 0, width: 0, height: 0
+            fill: 'rgba(0,255,204,0.2)', stroke: '#00ffcc', strokeWidth: 2,
+            selectable: false, left: 0, top: 0, width: 0, height: 0
         });
         canvas.add(selectionRect);
 
@@ -101,8 +142,8 @@ function updateSelection(o) {
 
 async function processWithROI() {
     const btn = document.getElementById('btn-select-area');
-    btn.innerText = "Seleccionar Área";
-    btn.classList.remove('bg-red-600');
+    btn.innerText = "SELECCIONAR ÁREA";
+    btn.classList.remove('bg-[#00ffcc]', 'text-black');
     canvas.defaultCursor = 'default';
     
     const roi = {
@@ -114,12 +155,10 @@ async function processWithROI() {
     canvas.off('mouse:down');
     canvas.off('mouse:move');
     
-    // Necesitamos el archivo original. Lo pediremos si no hay imagen base.
     document.getElementById('uploadImage').click();
     window.pendingROI = roi;
 }
 
-// Actualizar el listener de uploadImage para manejar ROI
 document.getElementById('uploadImage').addEventListener('change', async function(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -136,50 +175,53 @@ document.getElementById('uploadImage').addEventListener('change', async function
     canvas.clear();
 
     try {
-        const res = await fetch('/api/decompose', { method: 'POST', body: formData });
+        const token = sessionStorage.getItem('cv_token');
+        if(!token) { logout(); return; }
+
+        const res = await fetch('/api/decompose', { 
+            method: 'POST', 
+            headers: { 'Authorization': `Bearer ${token}` }, // INYECCIÓN DE TOKEN SECRETO
+            body: formData 
+        });
+        
+        if(res.status === 401) { logout(); throw new Error('Token expirado'); }
         const data = await res.json();
 
         if(data.error) {
-            alert("Error procesando: " + data.error);
+            alert("Error del motor IA: " + data.error);
             loader.classList.add('hidden');
             return;
         }
 
-        // 1. Fondo Reconstruido (Inpainted) -> Capa Base (Index 0)
         fabric.Image.fromURL('data:image/png;base64,' + data.base_background, function(bg) {
-            bg.set({ left: 0, top: 0, selectable: false, evented: false, name: "Fondo Base (IA)" });
-            
-            // Ajustar tamaño del canvas a la imagen
+            bg.set({ left: 0, top: 0, selectable: false, evented: false, name: "BASE (IA Inpaint)" });
             canvas.setWidth(bg.width);
             canvas.setHeight(bg.height);
             canvas.add(bg);
             bg.sendToBack();
 
-            // 2. Insertar Objetos Extraídos
             data.objects.forEach((o, index) => {
                 fabric.Image.fromURL('data:image/png;base64,' + o.img, function(imgObj) {
-                    imgObj.set({ left: o.x, top: o.y, name: `Objeto ${index + 1}` });
+                    imgObj.set({ left: o.x, top: o.y, name: `OBJ_${index + 1}` });
                     canvas.add(imgObj);
                 });
             });
 
-            // 3. Insertar Textos como Textos editables interactivos
             data.texts.forEach((t, index) => {
                 const textObj = new fabric.IText(t.text, {
-                    left: t.x, top: t.y, fontSize: t.size || 20, fontFamily: t.font, fill: t.color, name: `Texto: ${t.text.substring(0,10)}`
+                    left: t.x, top: t.y, fontSize: t.size || 20, fontFamily: t.font, fill: t.color, name: `TXT_${t.text.substring(0,6)}`
                 });
                 canvas.add(textObj);
             });
             
         });
     } catch (error) {
-        console.error("Error AI Engine:", error);
+        console.error("Seguridad/Red:", error);
     } finally {
         loader.classList.add('hidden');
     }
 });
 
-// Añadir imágenes nuevas sobre las existentes sin alterar fondo
 document.getElementById('addLayerImage').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -187,7 +229,7 @@ document.getElementById('addLayerImage').addEventListener('change', function(e) 
     reader.onload = function(f) {
         const data = f.target.result;
         fabric.Image.fromURL(data, function(img) {
-            img.set({ left: 50, top: 50, name: `Importado: ${file.name}` });
+            img.set({ left: 50, top: 50, name: `EXT_${file.name.substring(0,5)}` });
             canvas.add(img);
             canvas.setActiveObject(img);
         });
@@ -195,63 +237,49 @@ document.getElementById('addLayerImage').addEventListener('change', function(e) 
     reader.readAsDataURL(file);
 });
 
-// Función de Descarga de Imagen Final
 window.downloadPNG = function() {
-    const dataURL = canvas.toDataURL({
-        format: 'png',
-        quality: 1
-    });
+    const dataURL = canvas.toDataURL({ format: 'png', quality: 1 });
     const link = document.createElement('a');
-    link.download = 'cv-surgeon-export.png';
+    link.download = 'classified-export.png';
     link.href = dataURL;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 };
 
-// Mejorar la interacción de capas
 function renderLayers() {
     layersList.innerHTML = '';
     const objects = canvas.getObjects();
     
     objects.forEach((obj, i) => {
         const li = document.createElement('li');
-        li.className = `layer-item border border-gray-700 rounded p-2 text-xs flex justify-between items-center ${canvas.getActiveObject() === obj ? 'bg-red-900/30 border-red-500' : 'bg-gray-900'}`;
+        li.className = `layer-item border border-[#00ffcc] bg-black p-2 text-xs flex justify-between items-center ${canvas.getActiveObject() === obj ? 'shadow-[inset_0_0_10px_rgba(0,255,204,0.5)]' : ''}`;
         
         li.innerHTML = `
-            <div class="flex flex-col">
-                <span class="font-bold">#${i + 1} ${obj.name || obj.type}</span>
-                <span class="text-[10px] text-gray-500">Z-Index: ${i}</span>
+            <div class="flex flex-col truncate w-1/2">
+                <span class="font-bold text-[#00ffcc]">#${i} ${obj.name || obj.type}</span>
             </div>
             <div class="flex gap-1">
-                <button title="Subir" class="bg-gray-800 p-1 rounded hover:bg-gray-700" onclick="changeZ(${i}, 1)">↑</button>
-                <button title="Bajar" class="bg-gray-800 p-1 rounded hover:bg-gray-700" onclick="changeZ(${i}, -1)">↓</button>
-                <button title="Eliminar" class="bg-red-900/50 p-1 rounded hover:bg-red-600" onclick="removeLayer(${i})">✕</button>
+                <button title="Subir" class="cyber-btn px-2" onclick="changeZ(${i}, 1)">↑</button>
+                <button title="Bajar" class="cyber-btn px-2" onclick="changeZ(${i}, -1)">↓</button>
+                <button title="Eliminar" class="text-red-500 border border-red-500 px-2 hover:bg-red-500 hover:text-black" onclick="removeLayer(${i})">X</button>
             </div>
         `;
         li.onclick = (e) => {
-            if(e.target.tagName !== 'BUTTON') {
-                canvas.setActiveObject(obj);
-                canvas.renderAll();
-            }
+            if(e.target.tagName !== 'BUTTON') { canvas.setActiveObject(obj); canvas.renderAll(); }
         };
-        layersList.prepend(li); // Lo más arriba en la lista es lo más arriba en el canvas
+        layersList.prepend(li);
     });
 }
 
 window.changeZ = function(index, delta) {
     const obj = canvas.item(index);
     if(!obj) return;
-    
-    if(delta > 0) {
-        canvas.bringForward(obj);
-    } else {
-        if(index > 0) canvas.sendBackwards(obj);
-    }
-    canvas.renderAll();
-    renderLayers();
+    if(delta > 0) canvas.bringForward(obj); else if(index > 0) canvas.sendBackwards(obj);
+    canvas.renderAll(); renderLayers();
 };
 window.removeLayer = function(index) {
     const obj = canvas.item(index);
     if(obj) { canvas.remove(obj); canvas.renderAll(); renderLayers(); }
 };
+

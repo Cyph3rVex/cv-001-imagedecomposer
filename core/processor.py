@@ -1,22 +1,28 @@
-from PIL import Image, ImageDraw, ImageOps
+from PIL import Image, ImageDraw, ImageFilter
 import io
 import base64
 import pytesseract
 
+MAX_DIMENSION = 1920  # Límite de seguridad 1080p para evitar OOM en Termux
+
 def process_image(image_bytes: bytes, roi: dict = None) -> dict:
     """
-    Versión Termux-Optimized (Pillow Engine): 
-    Segmenta la imagen, extrae texto y genera fondo limpio.
+    Versión Termux-Optimized (Pillow Engine) V2:
+    Inpainting Avanzado y Protección contra desbordamiento de memoria.
     """
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     
+    # [EDGE CASE 1]: Protección contra Out-Of-Memory (OOM)
+    # Si la imagen es masiva (ej. fotos de cámara raw), la redimensionamos preservando el ratio
+    if img.width > MAX_DIMENSION or img.height > MAX_DIMENSION:
+        img.thumbnail((MAX_DIMENSION, MAX_DIMENSION), Image.Resampling.LANCZOS)
+    
     if roi:
+        # Se asume que el ROI viene escalado respecto a la imagen redimensionada del frontend
         img = img.crop((int(roi['x']), int(roi['y']), int(roi['x'] + roi['w']), int(roi['y'] + roi['h'])))
 
-    # 1. Extracción de Texto y Máscara
     texts = []
-    mask_draw = Image.new("L", img.size, 0)
-    draw = ImageDraw.Draw(mask_draw)
+    bg = img.copy()
 
     try:
         d = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
@@ -35,26 +41,20 @@ def process_image(image_bytes: bytes, roi: dict = None) -> dict:
                     "font": "Arial", 
                     "color": hex_color
                 })
-                # Añadir a la máscara de eliminación (un poco más grande para limpieza)
-                draw.rectangle([x-2, y-2, x+w+2, y+h+2], fill=255)
+                
+                # [EDGE CASE 2]: Inpainting Suavizado
+                # Extraemos un recuadro un poco más grande alrededor del texto
+                margin = 8
+                box = (max(0, x - margin), max(0, y - margin), min(img.width, x + w + margin), min(img.height, y + h + margin))
+                region = img.crop(box)
+                
+                # Aplicamos un desenfoque gaussiano agresivo a la región para difuminar los bordes
+                # y simular la clonación del fondo contiguo sin cortes abruptos.
+                blurred_region = region.filter(ImageFilter.GaussianBlur(radius=10))
+                bg.paste(blurred_region, box)
     except Exception:
         pass
 
-    # 2. Segmentación de Objetos (Basada en contraste)
-    # En esta versión simplificada, trataremos áreas no-texto como objetos si tienen contraste
-    objects = []
-    # (Lógica simplificada para Termux: por ahora el usuario puede añadir capas manualmente)
-    
-    # 3. Reconstrucción de Fondo (Inpainting simplificado vía Blur/Expand)
-    # Rellenamos los huecos del texto con el color promedio circundante
-    bg = img.copy()
-    for t in texts:
-        # Muestrear color justo afuera del texto para rellenar
-        sample_pixel = bg.getpixel((max(0, t['x']-5), max(0, t['y']-5)))
-        bg_draw = ImageDraw.Draw(bg)
-        bg_draw.rectangle([t['x'], t['y'], t['x']+10, t['y']+t['size']], fill=sample_pixel) # Placeholder de relleno
-
-    # Convertir a Base64
     def to_b64(pil_img):
         buf = io.BytesIO()
         pil_img.save(buf, format="PNG")
@@ -62,6 +62,6 @@ def process_image(image_bytes: bytes, roi: dict = None) -> dict:
 
     return {
         "base_background": to_b64(bg),
-        "objects": objects,
+        "objects": [], # Los objetos complejos requerirían OpenCV, desactivado en esta build segura.
         "texts": texts
     }

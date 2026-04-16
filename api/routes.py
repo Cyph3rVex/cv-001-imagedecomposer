@@ -1,14 +1,19 @@
 import json
-from fastapi import APIRouter, UploadFile, File, Form
+from fastapi import APIRouter, UploadFile, File, Form, Depends
 from fastapi.responses import JSONResponse
 from core.processor import process_image
+from core.security import verify_token
 
 router = APIRouter()
 
 @router.post("/decompose")
-async def decompose(file: UploadFile = File(...), roi: str = Form(None)):
+async def decompose(
+    file: UploadFile = File(...), 
+    roi: str = Form(None),
+    current_user: str = Depends(verify_token) # GUARDIA DE SEGURIDAD JWT INYECTADO
+):
     """
-    Descompone una imagen segmentando texto, logos y reconstruyendo el fondo.
+    Descompone una imagen. ACCESO RESTRINGIDO.
     """
     try:
         data = await file.read()
